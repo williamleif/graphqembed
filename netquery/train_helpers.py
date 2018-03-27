@@ -1,13 +1,10 @@
 import random
 import numpy as np
 
-def check_conv(losses, window=1000, tol=1e-6):
-    if len(losses) < 2 * window:
+def check_conv(vals, window=2, tol=1e-6):
+    if len(vals) < 2 * window:
         return False
-    conv = np.mean(losses[-2*window:-window]) - np.mean(losses[-window:]) 
-    if conv < tol:
-        print "Prev mean", np.mean(losses[-2*window:-window])
-        print "New mean", np.mean(losses[-window:])
+    conv = np.mean(vals[-2*window:-window]) - np.mean(vals[-window:]) 
     return conv < tol
 
 def update_loss(loss, losses, ema_loss, ema_alpha=0.01):
