@@ -51,7 +51,7 @@ class Encoder(nn.Module):
     def __init__(self, features, feature_dims, 
             out_dims, relations, adj_lists, aggregator,
             base_model=None, cuda=False, 
-            layer_norm=True,
+            layer_norm=False,
             feature_modules={}): 
         """
         Initializes the model for a specific graph.

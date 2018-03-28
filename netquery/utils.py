@@ -1,12 +1,29 @@
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
-from netquery.decoders import BilinearMetapathDecoder, TransEMetapathDecoder, BilinearDiagMetapathDecoder
+from netquery.decoders import BilinearMetapathDecoder, TransEMetapathDecoder, BilinearDiagMetapathDecoder, SetIntersection, SimpleSetIntersection
+from netquery.encoders import DirectEncoder, Encoder
+from netquery.aggregators import MeanAggregator
 import cPickle as pickle
+import logging
 
 """
-Misc utility function..
+Misc utility functions..
 """
+
+def get_val(data, val_prop):
+    train_data = []
+    val_data = []
+    for kind in range(len(data)):
+        train_data_kind = {}
+        val_data_kind = {}
+        for length in data[kind].keys():
+            train_data_kind[length] = {rel : [e for e in es[int(len(es)*val_prop):]] for rel, es in data[length].iteritems()}
+            val_data_kind[length] = {rel : [e for e in es[:int(len(es)*val_prop)]] for rel, es in data[length].iteritems()}
+        train_data.append(train_data_kind)
+        val_data.append(val_data_kind)
+    return train_data, val_data
+
 
 def cudify(feature_modules):
    features = lambda nodes, mode : feature_modules[mode](
@@ -97,6 +114,40 @@ def evaluate_intersect_auc(test_intersects, neg_intersects, enc_dec, batch_size=
             predictions.extend(scores)
     return roc_auc_score(labels, predictions), rel_aucs
 
+def get_encoder(depth, graph, out_dims, feature_modules, cuda): 
+    if depth < 0 or depth > 3:
+        raise Exception("Depth must be between 0 and 3 (inclusive)")
+
+    if depth == 0:
+         enc = DirectEncoder(graph.features, feature_modules)
+    else:
+        aggregator1 = MeanAggregator(graph.features)
+        enc1 = Encoder(graph.features, 
+                graph.feature_dims, 
+                out_dims, 
+                graph.relations, 
+                graph.adj_lists, feature_modules=feature_modules, 
+                cuda=cuda, aggregator=aggregator1)
+        enc = enc1
+        if depth >= 2:
+            aggregator2 = MeanAggregator(lambda nodes, mode : enc1(nodes, mode).t().squeeze())
+            enc2 = Encoder(lambda nodes, mode : enc1(nodes, mode).t().squeeze(),
+                    enc1.out_dims, 
+                    out_dims, 
+                    graph.relations, 
+                    graph.adj_lists, base_model=enc1,
+                    cuda=cuda, aggregator=aggregator2)
+            enc = enc2
+            if depth >= 3:
+                aggregator3 = MeanAggregator(lambda nodes, mode : enc2(nodes, mode).t().squeeze())
+                enc3 = Encoder(lambda nodes, mode : enc1(nodes, mode).t().squeeze(),
+                        enc2.out_dims, 
+                        out_dims, 
+                        graph.relations, 
+                        graph.adj_lists, base_model=enc2,
+                        cuda=cuda, aggregator=aggregator3)
+                enc = enc3
+    return enc
 
 def get_metapath_decoder(graph, out_dims, decoder):
     if decoder == "bilinear":
@@ -105,6 +156,36 @@ def get_metapath_decoder(graph, out_dims, decoder):
         dec = TransEMetapathDecoder(graph.relations, out_dims)
     elif decoder == "bilinear-diag":
         dec = BilinearDiagMetapathDecoder(graph.relations, out_dims)
+    else:
+        raise Exception("Metapath decoder not recognized.")
     return dec
 
+def get_intersection_decoder(graph, out_dims, decoder):
+    if decoder == "mean":
+        dec = SetIntersection(out_dims, out_dims, agg_func=torch.mean)
+    elif decoder == "mean-simple":
+        dec = SimpleSetIntersection(agg_func=torch.mean)
+    elif decoder == "max":
+        dec = SetIntersection(out_dims, out_dims, agg_func=torch.max)
+    elif decoder == "max-simple":
+        dec = SimpleSetIntersection(agg_func=torch.max)
+    else:
+        raise Exception("Intersection decoder not recognized.")
+    return dec
 
+def setup_logging(log_file, console=True):
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        filename='logs_file',
+                        filemode='w')
+    if console:
+        console = logging.StreamHandler()
+        # optional, set the logging level
+        console.setLevel(logging.INFO)
+        # set a format which is the same for console use
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        # tell the handler to use this format
+        console.setFormatter(formatter)
+        # add the handler to the root logger
+        logging.getLogger('').addHandler(console)
+    return logging
