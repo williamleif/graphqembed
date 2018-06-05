@@ -62,6 +62,7 @@ class BilinearEdgeDecoder(nn.Module):
                 init.xavier_uniform(self.mats[rel])
                 self.register_parameter("_".join(rel), self.mats[rel])
 
+
     def forward(self, embeds1, embeds2, rel):
         acts = embeds1.t().mm(self.mats[rel])
         return self.cos(acts.t(), embeds2)
@@ -88,6 +89,8 @@ class TransEEdgeDecoder(nn.Module):
         trans_dist = (trans_embed - embeds2).pow(2).sum(0)
         return trans_dist
 
+    
+
 class BilinearDiagEdgeDecoder(nn.Module):
     """
     Decoder where the relationship score is given by a bilinear form
@@ -108,6 +111,8 @@ class BilinearDiagEdgeDecoder(nn.Module):
     def forward(self, embeds1, embeds2, rel):
         acts = (embeds1*self.vecs[rel].unsqueeze(1).expand(self.vecs[rel].size(0), embeds1.size(1))*embeds2).sum(0)
         return acts
+
+ 
 
 """ 
 *Metapath decoders*
@@ -141,6 +146,11 @@ class BilinearMetapathDecoder(nn.Module):
         act = self.cos(act.t(), embeds2)
         return act
 
+    def project(self, embeds, rel):
+        return self.mats[rel].mm(embeds)
+
+
+   
 class DotBilinearMetapathDecoder(nn.Module):
     """
     Each edge type is represented by a matrix, and
@@ -185,13 +195,18 @@ class TransEMetapathDecoder(nn.Module):
                 self.vecs[rel] = nn.Parameter(torch.FloatTensor(dims[rel[0]]))
                 init.uniform(self.vecs[rel], a=-6.0/np.sqrt(dims[rel[0]]), b=6.0/np.sqrt(dims[rel[0]]))
                 self.register_parameter("_".join(rel), self.vecs[rel])
+        self.cos = nn.CosineSimilarity(dim=0)
 
     def forward(self, embeds1, embeds2, rels):
         trans_embed = embeds1
         for i_rel in rels:
             trans_embed += self.vecs[i_rel].unsqueeze(1).expand(self.vecs[i_rel].size(0), embeds1.size(1))
-        trans_dist = (trans_embed - embeds2).pow(2).sum(0)
+        trans_dist = self.cos(embeds2, trans_embed)
         return trans_dist
+
+    def project(self, embeds, rel):
+        return embeds + self.vecs[rel].unsqueeze(1).expand(self.vecs[rel].size(0), embeds.size(1))
+
 
 class BilinearDiagMetapathDecoder(nn.Module):
     """
@@ -216,6 +231,10 @@ class BilinearDiagMetapathDecoder(nn.Module):
             acts = acts*self.vecs[i_rel].unsqueeze(1).expand(self.vecs[i_rel].size(0), embeds1.size(1))
         acts = (acts*embeds2).sum(0)
         return acts
+
+    def project(self, embeds, rel):
+        return embeds*self.vecs[rel].unsqueeze(1).expand(self.vecs[rel].size(0), embeds.size(1))
+
 
 
 """
