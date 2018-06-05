@@ -1,0 +1,2 @@
+torch>=3.0
+scikit-learn==0.18.2
