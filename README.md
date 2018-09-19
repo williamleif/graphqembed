@@ -11,7 +11,7 @@ Run `pip install -r requirements.txt` to obtain the necessary requirements.
 The primary requirements is pytorch with version >=3.0.
 You may want to use a [virtualenv](https://virtualenv.pypa.io/en/stable/) or [Docker](https://www.docker.com/).
 
-The biological interaction network data used in the paper can be downloaded [here](snap.stanford.edu/nqe/bio_data.zip).
+The biological interaction network data used in the paper can be downloaded [here](https://snap.stanford.edu/nqe/bio_data.zip).
 Unzip the data in your working directory.
 
 ### Running the code
