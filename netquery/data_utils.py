@@ -79,12 +79,15 @@ def parallel_sample(graph, num_workers, samples_per_worker, data_dir, test=False
         print "Loading test/val data.."
         test_edges = load_queries(data_dir + "/test_edges.pkl")
         val_edges = load_queries(data_dir + "/val_edges.pkl")
-        proc_range = range(num_workers) if start_ind is None else range(start_ind, num_workers+start_ind)
-        procs = [Process(target=parallel_sample_worker, args=[i, samples_per_worker, graph, data_dir, test, val_edges+test_edges]) for i in proc_range]
-        for p in procs:
-            p.start()
-        for p in procs:
-            p.join() 
+    else:
+        test_edges = []
+        val_edges = []
+    proc_range = range(num_workers) if start_ind is None else range(start_ind, num_workers+start_ind)
+    procs = [Process(target=parallel_sample_worker, args=[i, samples_per_worker, graph, data_dir, test, val_edges+test_edges]) for i in proc_range]
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join() 
     queries_2 = []
     queries_3 = []
     for i in range(num_workers):
