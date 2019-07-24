@@ -1,4 +1,4 @@
-## NetQuery: Learning to Query Complex Networks
+## GraphQEmbed
 
 #### Maintainer: William L. Hamilton (wleif@stanford.edu)
 
